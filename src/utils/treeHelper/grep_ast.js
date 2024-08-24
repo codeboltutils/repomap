@@ -21,6 +21,9 @@ class TreeContext {
         show_top_of_file_parent_scope = true,
         loi_pad = 1
     ) {
+        try {
+            
+        
         this.filename = filename;
         this.color = color;
         this.verbose = verbose;
@@ -102,6 +105,9 @@ class TreeContext {
 
         this.show_lines = new Set();
         this.lines_of_interest = new Set();
+    } catch (error) {
+            return ''
+    }
     }
 
     grep(pat, ignore_case) {

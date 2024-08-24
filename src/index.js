@@ -278,6 +278,10 @@ class Counter {
   }
 
   get_tags_raw(fname, rel_fname) {
+
+    try {
+      
+    
     // Determine language based on file extension or other means
     let language = null;
     if (fname.endsWith('.py')) {
@@ -298,6 +302,7 @@ class Counter {
     const code = fs.readFileSync(fname, 'utf-8');
     // console.log(code)
     if (!code) return [];
+  
 
     const tree = Parser.parse(code);
 
@@ -353,6 +358,9 @@ class Counter {
     }
 
     return results;
+  } catch (error) {
+      return []
+  }
     
 
   }

@@ -4,7 +4,8 @@ const TreeSitter = require('tree-sitter');
 const TreeSitterPython = require('tree-sitter-python');
 const TreeSitterJavaScript = require('tree-sitter-javascript'); // Add more languages as needed
 const TreeSitterTypeScript = require('tree-sitter-typescript').typescript
-const   {  encode} = require("gpt-tokenizer/model/gpt-4o")
+const TreeSitterTypeScriptTSX = require('tree-sitter-typescript').tsx
+const { encode } = require("gpt-tokenizer/model/gpt-4o")
 
 const {
   MultiDirectedGraph
@@ -57,7 +58,7 @@ class Counter {
 
 
 
- class RepoMap {
+class RepoMap {
   static CACHE_VERSION = 3;
   static TAGS_CACHE_DIR = `.aider.tags.cache.v${RepoMap.CACHE_VERSION}`;
 
@@ -96,14 +97,14 @@ class Counter {
       rel_fname,
       code,
       false,
-       false,
+      false,
       false,
       false,
       0,
-       false,
+      false,
       0,
       // header_max: 30,
-       false
+      false
     );
 
     context.add_lines_of_interest(lois);
@@ -169,12 +170,12 @@ class Counter {
   }
 
 
-  async get_repo_map(chat_files, other_files, mentioned_fnames =[], mentioned_idents = []) {
+  async get_repo_map(chat_files, other_files, mentioned_fnames = [], mentioned_idents = []) {
     if (this.max_map_tokens <= 0) {
-        return;
+      return;
     }
     if (!other_files) {
-        return;
+      return;
     }
 
     let max_map_tokens = this.max_map_tokens;
@@ -184,34 +185,34 @@ class Counter {
     const padding = 4096;
     let target = 0;
     if (max_map_tokens && this.max_context_window) {
-        target = Math.min(max_map_tokens * MUL, this.max_context_window - padding);
+      target = Math.min(max_map_tokens * MUL, this.max_context_window - padding);
     }
     if (!chat_files.length && this.max_context_window && target > 0) {
-        max_map_tokens = target;
+      max_map_tokens = target;
     }
 
     let files_listing;
     try {
-        files_listing = await this.get_ranked_tags_map(
-            chat_files, other_files, max_map_tokens, mentioned_fnames, mentioned_idents
-        );
+      files_listing = await this.get_ranked_tags_map(
+        chat_files, other_files, max_map_tokens, mentioned_fnames, mentioned_idents
+      );
     } catch (e) {
-        if (e instanceof RangeError) {
-            this.io.tool_error("Disabling repo map, git repo too large?");
-            this.max_map_tokens = 0;
-            return;
-        } else {
-            throw e;
-        }
+      if (e instanceof RangeError) {
+        this.io.tool_error("Disabling repo map, git repo too large?");
+        this.max_map_tokens = 0;
+        return;
+      } else {
+        throw e;
+      }
     }
 
     if (!files_listing) {
-        return;
+      return;
     }
 
     const num_tokens = encode(files_listing).length;;
     if (this.verbose) {
-        this.io.tool_output(`Repo-map: ${(num_tokens / 1024).toFixed(1)} k-tokens`);
+      this.io.tool_output(`Repo-map: ${(num_tokens / 1024).toFixed(1)} k-tokens`);
     }
 
     let other = chat_files.length ? "other " : "";
@@ -220,7 +221,7 @@ class Counter {
     repo_content += files_listing;
 
     return repo_content;
-}
+  }
 
   get_rel_fname(fname) {
     return path.relative(this.root, fname);
@@ -280,88 +281,91 @@ class Counter {
   get_tags_raw(fname, rel_fname) {
 
     try {
-      
-    
-    // Determine language based on file extension or other means
-    let language = null;
-    if (fname.endsWith('.py')) {
-      language = TreeSitterPython;
-    } else if (fname.endsWith('.js')) {
-      language = TreeSitterJavaScript;
-    }
-   else if (fname.endsWith('.ts')) {
-    language = TreeSitterTypeScript;
-  }
-    // Add more languages as needed
 
-    if (!language) return [];
 
-    const Parser = new TreeSitter();
-    Parser.setLanguage(language);
+      // Determine language based on file extension or other means
+      let language = null;
+      if (fname.endsWith('.py')) {
+        language = TreeSitterPython;
+      } else if (fname.endsWith('.js')) {
+        language = TreeSitterJavaScript;
+      }
+      else if (fname.endsWith('.ts')) {
+        language = TreeSitterTypeScript;
+      }
+      else if (fname.endsWith('.tsx')) {
+        language = TreeSitterTypeScriptTSX;
+      }
+      // Add more languages as needed
 
-    const code = fs.readFileSync(fname, 'utf-8');
-    // console.log(code)
-    if (!code) return [];
-  
+      if (!language) return [];
 
-    const tree = Parser.parse(code);
+      const Parser = new TreeSitter();
+      Parser.setLanguage(language);
 
-    const query_scm_path = path.join(__dirname, 'queries', `tree-sitter-${language.name}-tags.scm`);
-    if (!fs.existsSync(query_scm_path)) return [];
-    const query_scm = fs.readFileSync(query_scm_path, 'utf8');
+      const code = fs.readFileSync(fname, 'utf-8');
+      // console.log(code)
+      if (!code) return [];
 
-    // const query = language.query(query_scm);
-    const query = new TreeSitter.Query(language, query_scm);
-    const captures = query.captures(tree.rootNode);
-    // console.log(captures)
-    const results = [];
-    const saw = new Set();
-    for (const {
-      name: tag,
-      node
-    } of captures) {
-      let kind;
-      if (tag.startsWith('name.definition.')) {
-        kind = 'def';
-      } else if (tag.startsWith('name.reference.')) {
-        kind = 'ref';
-      } else {
-        // console.log(tag)
-        continue;
+
+      const tree = Parser.parse(code);
+
+      const query_scm_path = path.join(__dirname, 'queries', `tree-sitter-${language.name}-tags.scm`);
+      if (!fs.existsSync(query_scm_path)) return [];
+      const query_scm = fs.readFileSync(query_scm_path, 'utf8');
+
+      // const query = language.query(query_scm);
+      const query = new TreeSitter.Query(language, query_scm);
+      const captures = query.captures(tree.rootNode);
+      // console.log(captures)
+      const results = [];
+      const saw = new Set();
+      for (const {
+        name: tag,
+        node
+      } of captures) {
+        let kind;
+        if (tag.startsWith('name.definition.')) {
+          kind = 'def';
+        } else if (tag.startsWith('name.reference.')) {
+          kind = 'ref';
+        } else {
+          // console.log(tag)
+          continue;
+        }
+
+        saw.add(kind);
+
+        const result = {
+          rel_fname,
+          fname,
+          line: node.startPosition.row,
+          name: node.text,
+          kind
+        };
+        results.push(new Tag(result));
       }
 
-      saw.add(kind);
+      if (saw.has('ref')) return results;
+      if (!saw.has('def')) return results;
 
-      const result = {
-        rel_fname,
-        fname,
-        line: node.startPosition.row,
-        name: node.text,
-        kind
-      };
-      results.push(new Tag(result));
-    }
+      const tokens = code.match(/\b\w+\b/g) || [];
 
-    if (saw.has('ref')) return results;
-    if (!saw.has('def')) return results;
+      for (const token of tokens) {
+        results.push(new Tag({
+          rel_fname: rel_fname,
+          fname: fname,
+          name: token,
+          kind: 'ref',
+          line: -1,
+        }));
+      }
 
-    const tokens = code.match(/\b\w+\b/g) || [];
-
-    for (const token of tokens) {
-      results.push(new Tag({
-        rel_fname: rel_fname,
-        fname: fname,
-        name: token,
-        kind: 'ref',
-        line: -1,
-      }));
-    }
-
-    return results;
-  } catch (error) {
+      return results;
+    } catch (error) {
       return []
-  }
-    
+    }
+
 
   }
 
@@ -426,7 +430,7 @@ class Counter {
           }
           defines.get(tag.name).add(rel_fname);
 
-          const key =JSON.stringify([rel_fname, tag.name]);
+          const key = JSON.stringify([rel_fname, tag.name]);
           if (!definitions.has(key)) {
             definitions.set(key, new Set());
           }
@@ -478,8 +482,8 @@ class Counter {
           G.addEdge(referencer, definer, {
             weight: mul * scaled_num_refs,
             ident,
-            source:referencer,
-            target:definer
+            source: referencer,
+            target: definer
           });
         }
 
@@ -497,14 +501,14 @@ class Counter {
       }, {})
     } : {};
 
-    let ranked ={};
+    let ranked = {};
     try {
       ranked = pagerank(G, {
         weight: "weight",
         ...pers_args
       });
     } catch (e) {
-      ranked ={};
+      ranked = {};
     }
 
     const ranked_definitions = new Map();
@@ -515,19 +519,19 @@ class Counter {
 
       const src_rank = ranked[src];
       // console.log(G.outEdges(src))
-      
+
       let outEdges = G.outEdges(src)
-      let total_weight=0;
+      let total_weight = 0;
       G.forEachEdge((edge, attributes) => {
-        if(attributes.source==src){
+        if (attributes.source == src) {
           if (attributes.weight) {
             total_weight += attributes.weight;
           }
         }
       });
       G.forEachEdge((edge, attributes) => {
-       
-        if(attributes.source==src){
+
+        if (attributes.source == src) {
           const weight = attributes.weight || 0;
           const rank = src_rank * weight / total_weight;
           const ident = attributes.ident;
@@ -572,59 +576,59 @@ class Counter {
     return ranked_tags;
   }
 
-// This Python function is converted to JavaScript below
+  // This Python function is converted to JavaScript below
 
-async get_ranked_tags_map(chat_fnames, other_fnames = [], max_map_tokens = null, mentioned_fnames = new Set(), mentioned_idents = new Set()) {
-  if (!other_fnames) {
+  async get_ranked_tags_map(chat_fnames, other_fnames = [], max_map_tokens = null, mentioned_fnames = new Set(), mentioned_idents = new Set()) {
+    if (!other_fnames) {
       other_fnames = [];
-  }
-  if (!max_map_tokens) {
+    }
+    if (!max_map_tokens) {
       max_map_tokens = this.max_map_tokens;
-  }
-  if (!mentioned_fnames) {
+    }
+    if (!mentioned_fnames) {
       mentioned_fnames = new Set();
-  }
-  if (!mentioned_idents) {
+    }
+    if (!mentioned_idents) {
       mentioned_idents = new Set();
-  }
+    }
 
-  let ranked_tags = await this.get_ranked_tags(chat_fnames, other_fnames, mentioned_fnames, mentioned_idents);
+    let ranked_tags = await this.get_ranked_tags(chat_fnames, other_fnames, mentioned_fnames, mentioned_idents);
 
-  let num_tags = ranked_tags.length;
-  let lower_bound = 0;
-  let upper_bound = num_tags;
-  let best_tree = null;
-  let best_tree_tokens = 0;
+    let num_tags = ranked_tags.length;
+    let lower_bound = 0;
+    let upper_bound = num_tags;
+    let best_tree = null;
+    let best_tree_tokens = 0;
 
-  let chat_rel_fnames = chat_fnames.map(fname => this.get_rel_fname(fname));
+    let chat_rel_fnames = chat_fnames.map(fname => this.get_rel_fname(fname));
 
-  // Guess a small starting number to help with giant repos
-  let middle = Math.min(Math.floor(max_map_tokens / 25), num_tags);
+    // Guess a small starting number to help with giant repos
+    let middle = Math.min(Math.floor(max_map_tokens / 25), num_tags);
 
-  this.tree_cache = new Map();
+    this.tree_cache = new Map();
 
-  while (lower_bound <= upper_bound) {
+    while (lower_bound <= upper_bound) {
       let tree = this.to_tree(ranked_tags.slice(0, middle), chat_rel_fnames);
       let num_tokens = encode(tree).length;
 
       if (num_tokens < max_map_tokens && num_tokens > best_tree_tokens) {
-          best_tree = tree;
-          best_tree_tokens = num_tokens;
+        best_tree = tree;
+        best_tree_tokens = num_tokens;
       }
 
       if (num_tokens < max_map_tokens) {
-          lower_bound = middle + 1;
+        lower_bound = middle + 1;
       } else {
-          upper_bound = middle - 1;
+        upper_bound = middle - 1;
       }
 
       middle = Math.floor((lower_bound + upper_bound) / 2);
+    }
+
+    return best_tree;
   }
 
-  return best_tree;
-}
-
 }
 
 
-module.exports={RepoMap}
+module.exports = { RepoMap }

@@ -3,7 +3,7 @@ const TreeSitter = require('tree-sitter');
 const TreeSitterPython = require('tree-sitter-python');
 const TreeSitterJavaScript = require('tree-sitter-javascript'); // Add more languages as needed
 const TreeSitterTypeScript = require('tree-sitter-typescript').typescript
-
+const TreeSitterTypeScriptTSX = require('tree-sitter-typescript').tsx
 
 class TreeContext {
     constructor(
@@ -22,92 +22,95 @@ class TreeContext {
         loi_pad = 1
     ) {
         try {
-            
-        
-        this.filename = filename;
-        this.color = color;
-        this.verbose = verbose;
-        this.line_number = line_number;
-        this.last_line = last_line;
-        this.margin = margin;
-        this.mark_lois = mark_lois;
-        this.header_max = header_max;
-        this.loi_pad = loi_pad;
-        this.show_top_of_file_parent_scope = show_top_of_file_parent_scope;
 
-        this.parent_context = parent_context;
-        this.child_context = child_context;
 
-        // const lang = filename_to_lang(filename);
-        // if (!lang) {
-        //     throw new Error(`Unknown language for ${filename}`);
-        // }
-        let language = null;
-        if (this.filename.endsWith('.py')) {
-          language = TreeSitterPython;
-        } else if (this.filename.endsWith('.js')) {
-          language = TreeSitterJavaScript;
-        }
-        else if (this.filename.endsWith('.ts')) {
-            language = TreeSitterTypeScript;
-          }
-        // Add more languages as needed
-    
-        if (!language) return [];
-    
-        const parser = new TreeSitter();
-        parser.setLanguage(language);
+            this.filename = filename;
+            this.color = color;
+            this.verbose = verbose;
+            this.line_number = line_number;
+            this.last_line = last_line;
+            this.margin = margin;
+            this.mark_lois = mark_lois;
+            this.header_max = header_max;
+            this.loi_pad = loi_pad;
+            this.show_top_of_file_parent_scope = show_top_of_file_parent_scope;
 
-        // Get parser based on file extension
-        // const parser = getParser(lang);
-        const tree = parser.parse(code, 'utf8');
+            this.parent_context = parent_context;
+            this.child_context = child_context;
 
-        this.lines = code.split('\n');
-        this.num_lines = this.lines.length + 1;
-
-        // color lines, with highlighted matches
-        this.output_lines = {};
-
-        // Which scopes is each line part of?
-        this.scopes = Array.from({ length: this.num_lines }, () => new Set());
-
-        // Which lines serve as a short "header" for the scope starting on that line
-        this.header = Array.from({ length: this.num_lines }, () => []);
-
-        this.nodes = Array.from({ length: this.num_lines }, () => []);
-
-        const rootNode = tree.rootNode;
-        // console.log(rootNode);
-        this.walk_tree(rootNode);
-
-        if (this.verbose) {
-            const scope_width = Math.max(...this.scopes.slice(0, -1).map(scope => scope.size.toString().length));
-            for (let i = 0; i < this.num_lines; i++) {
-                const header = [...this.header[i]].sort();
-                if (this.verbose && i < this.num_lines - 1) {
-                    const scopes = [...this.scopes[i]].sort().join(', ');
-                    // console.log(`${scopes.padEnd(scope_width)} ${i} ${this.lines[i]}`);
-                }
-
-                let head_start = i;
-                let head_end = i + 1;
-
-                if (header.length > 1) {
-                    const [size, start, end] = header[0];
-                    if (size > this.header_max) {
-                        head_end = start + this.header_max;
-                    }
-                }
-
-                this.header[i] = [head_start, head_end];
+            // const lang = filename_to_lang(filename);
+            // if (!lang) {
+            //     throw new Error(`Unknown language for ${filename}`);
+            // }
+            let language = null;
+            if (this.filename.endsWith('.py')) {
+                language = TreeSitterPython;
+            } else if (this.filename.endsWith('.js')) {
+                language = TreeSitterJavaScript;
             }
-        }
+            else if (this.filename.endsWith('.ts')) {
+                language = TreeSitterTypeScript;
+            }
+            else if (this.filename.endsWith('.tsx')) {
+                language = TreeSitterTypeScriptTSX;
+            }
+            // Add more languages as needed
 
-        this.show_lines = new Set();
-        this.lines_of_interest = new Set();
-    } catch (error) {
+            if (!language) return [];
+
+            const parser = new TreeSitter();
+            parser.setLanguage(language);
+
+            // Get parser based on file extension
+            // const parser = getParser(lang);
+            const tree = parser.parse(code, 'utf8');
+
+            this.lines = code.split('\n');
+            this.num_lines = this.lines.length + 1;
+
+            // color lines, with highlighted matches
+            this.output_lines = {};
+
+            // Which scopes is each line part of?
+            this.scopes = Array.from({ length: this.num_lines }, () => new Set());
+
+            // Which lines serve as a short "header" for the scope starting on that line
+            this.header = Array.from({ length: this.num_lines }, () => []);
+
+            this.nodes = Array.from({ length: this.num_lines }, () => []);
+
+            const rootNode = tree.rootNode;
+            // console.log(rootNode);
+            this.walk_tree(rootNode);
+
+            if (this.verbose) {
+                const scope_width = Math.max(...this.scopes.slice(0, -1).map(scope => scope.size.toString().length));
+                for (let i = 0; i < this.num_lines; i++) {
+                    const header = [...this.header[i]].sort();
+                    if (this.verbose && i < this.num_lines - 1) {
+                        const scopes = [...this.scopes[i]].sort().join(', ');
+                        // console.log(`${scopes.padEnd(scope_width)} ${i} ${this.lines[i]}`);
+                    }
+
+                    let head_start = i;
+                    let head_end = i + 1;
+
+                    if (header.length > 1) {
+                        const [size, start, end] = header[0];
+                        if (size > this.header_max) {
+                            head_end = start + this.header_max;
+                        }
+                    }
+
+                    this.header[i] = [head_start, head_end];
+                }
+            }
+
+            this.show_lines = new Set();
+            this.lines_of_interest = new Set();
+        } catch (error) {
             return ''
-    }
+        }
     }
 
     grep(pat, ignore_case) {
@@ -295,10 +298,10 @@ class TreeContext {
         const start_line = node.startPosition.row;
         const end_line = node.endPosition.row;
         const size = end_line - start_line;
-    
+
         this.nodes[start_line] = this.nodes[start_line] || [];
         this.nodes[start_line].push(node);
-    
+
         if (this.verbose && node.isNamed) {
             console.log(
                 '   '.repeat(depth),
@@ -308,25 +311,25 @@ class TreeContext {
                 this.lines[start_line]
             );
         }
-    
+
         if (size) {
             this.header[start_line] = this.header[start_line] || [];
             this.header[start_line].push([size, start_line, end_line]);
         }
-    
+
         this.scopes[start_line] = this.scopes[start_line] || new Set();
         for (let i = start_line; i <= end_line; i++) {
             this.scopes[i] = this.scopes[i] || new Set();
             this.scopes[i].add(start_line);
         }
-    
+
         for (const child of node.children) {
             this.walk_tree(child, depth + 1);
         }
-    
+
         return [start_line, end_line];
     }
-    
+
 }
 
 module.exports = TreeContext;
